@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { ChatMessage, ChatSession } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
@@ -53,6 +53,15 @@ export default function ChatPage() {
     setInput("");
   };
 
+  useEffect(() => {
+    const scroller = document.getElementById("scroller");
+    const anchor = document.getElementById("anchor");
+
+    if (scroller && anchor) {
+      scroller.scrollTop = anchor.offsetTop;
+    }
+  }, [session.data]);
+
   if (session.isPending) {
     return (
       <div className="flex flex-col items-center justify-center h-screen">
@@ -73,7 +82,7 @@ export default function ChatPage() {
   return (
     <div className="grid gap-4 p-4 h-screen grid-rows-[auto,1fr,auto,auto]">
       <h1 className="text-xl font-bold">Chat</h1>
-      <div className="border p-2 overflow-y-auto ">
+      <div id="scroller" className="border p-2 overflow-y-auto">
         {session?.data?.messages.map((msg, index) => (
           <p
             key={index}
@@ -82,6 +91,7 @@ export default function ChatPage() {
             <b>{msg.author}:</b> {msg.text}
           </p>
         ))}
+        <div id="anchor"></div>
       </div>
       <input
         type="text"
