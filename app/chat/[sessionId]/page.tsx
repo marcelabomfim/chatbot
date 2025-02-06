@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import { ChatMessage, ChatSession } from "@prisma/client";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import Link from "next/link";
 
 interface Session extends ChatSession {
   messages: ChatMessage[];
@@ -32,7 +33,7 @@ export default function ChatPage() {
 
   const queryClient = useQueryClient()
 
-  const { data: session } = useQuery<Session>({
+  const session = useQuery<Session>({
     queryKey: ["chat", sessionId],
     queryFn: () => fetchChatSession(sessionId),
   });
@@ -52,11 +53,28 @@ export default function ChatPage() {
     setInput("");
   };
 
+  if (session.isPending) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <h1 className="text-2xl font-bold mb-4">Loading...</h1>
+      </div>
+    );
+  }
+
+  if (!session.data || session.isError) {
+    return (
+      <div className="flex flex-col items-center justify-center h-screen">
+        <h1 className="text-2xl font-bold mb-4">Session not found</h1>
+        <Link className="mt-2 bg-blue-500 text-white px-4 py-2 rounded" href="/">Start a new session</Link>
+      </div>
+    );
+  }
+
   return (
-    <div className="p-4">
+    <div className="grid gap-4 p-4 h-screen grid-rows-[auto,1fr,auto,auto]">
       <h1 className="text-xl font-bold">Chat</h1>
-      <div className="border p-2 h-96 overflow-y-auto">
-        {session?.messages.map((msg, index) => (
+      <div className="border p-2 overflow-y-auto ">
+        {session?.data?.messages.map((msg, index) => (
           <p
             key={index}
             className={msg.author === "Bot" ? "text-blue-500" : "text-gray-700"}
@@ -75,11 +93,12 @@ export default function ChatPage() {
             sendMessage();
           }
         }}
-        className="border p-2 rounded w-full mt-2"
+        className="border p-2 rounded w-full"
       />
       <button
         onClick={sendMessage}
-        className="mt-2 bg-green-500 text-white px-4 py-2 rounded"
+        className="bg-green-500 text-white px-4 py-2 rounded disabled:bg-green-900"
+        disabled={message.isPending}
       >
         Send
       </button>
