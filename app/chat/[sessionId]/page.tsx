@@ -1,45 +1,54 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import { ChatMessage, ChatSession } from "@prisma/client";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 interface Session extends ChatSession {
   messages: ChatMessage[];
 }
 
+const fetchChatSession = async (sessionId: string) => {
+  const session = await fetch(`/api/chat/${sessionId}`).then((res) =>
+    res.json()
+  );
+  return session;
+}
+
+const postChatMessage = async ({ sessionId, text }: { sessionId: string, text: string }) => {
+  const message = await fetch("/api/chat/message", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId, text }),
+  }).then((res) => res.json());
+
+  return message;
+}
+
 export default function ChatPage() {
-  const sessionId = useParams().sessionId;
-  const [session, setSession] = useState<Session>();
-  const [messages, setMessages] = useState<Partial<ChatMessage>[]>([]);
+  const sessionId = useParams().sessionId as string;
   const [input, setInput] = useState("");
 
-  useEffect(() => {
-    const fetchChat = async () => {
-      const session = await fetch(`/api/chat/${sessionId}`).then((res) =>
-        res.json()
-      );
-      setSession(session);
-      setMessages(session?.messages || []);
-    };
+  const queryClient = useQueryClient()
 
-    fetchChat();
-  }, [sessionId]);
+  const { data: session } = useQuery<Session>({
+    queryKey: ["chat", sessionId],
+    queryFn: () => fetchChatSession(sessionId),
+  });
+
+  const message = useMutation({
+    mutationFn: postChatMessage,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["chat", sessionId] })
+    },
+  })
 
   const sendMessage = async () => {
     if (!input.trim()) return;
 
-    const message = await fetch("/api/chat/message", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sessionId, text: input }),
-    }).then((res) => res.json());
+    message.mutate({ sessionId, text: input });
 
-    setMessages((prev) => [
-      ...prev,
-      { author: session?.user, text: input },
-      { author: "Bot", text: message.response },
-    ]);
     setInput("");
   };
 
@@ -47,7 +56,7 @@ export default function ChatPage() {
     <div className="p-4">
       <h1 className="text-xl font-bold">Chat</h1>
       <div className="border p-2 h-96 overflow-y-auto">
-        {messages.map((msg, index) => (
+        {session?.messages.map((msg, index) => (
           <p
             key={index}
             className={msg.author === "Bot" ? "text-blue-500" : "text-gray-700"}
